@@ -1,6 +1,6 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 import sys
-import copy 
+
 COL = {
     'CLEAR' : '\033[0m',
     'BLACK' : '\033[30m',
@@ -149,13 +149,13 @@ def default_print_result(result_list,m,n):
     rm_count = 0
     while i < len(result_list):
         if result_list[i].dir == 's':
-            print (COL['CLEAR'],'  '+str(n[result_list[i].ni]))
+            print (COL['CLEAR'] + "  " + str(n[result_list[i].ni]))
             mc_count += 1
         elif result_list[i].dir == 'r':
-            print (COL['GREEN'],'+ '+str(n[result_list[i].ni]))
+            print (COL['GREEN'] + "+ " + str(n[result_list[i].ni]))
             ad_count += 1
         elif result_list[i].dir == 'b':
-            print (COL['RED']  ,'- '+str(m[result_list[i].mi]))
+            print (COL['RED'] + "- " + str(m[result_list[i].mi]))
             rm_count += 1
         i += 1
     print (COL['CLEAR'])
@@ -167,8 +167,6 @@ def default_compare(a,b):
     if a == b:
         return True
     return False
-
-
 
 
 if __name__ == "__main__":
