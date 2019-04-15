@@ -420,44 +420,88 @@ def diff_compare(ch, tr):
     if TARGETAPI_PROFILESLIST[3] == tr["api_infos"]["trace_api"]:
         if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data_string"]]:
             api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data_string"]]
-            diff.diff(ch, api_target, diff.default_compare, diff_deep_result)
-            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-                return True
-            else:
-                return False
-        else:
-            api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data"]["send_data"]]
-            c = ChrlsParser()
-            diff.diff(c.utf8_decoder(ch), api_target, diff.default_compare, diff_deep_result)
-            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-                return True
-            else:
-                return False
+            ch_p = ch["data"]["header"]["firstLine"]
 
-if TARGETAPI_PROFILESLIST[5] == tr["api_infos"]["trace_api"]:
-    if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data_string"]]
-        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data_string"]]
-        diff.diff(ch, api_target, diff.default_compare, diff_deep_result)
+            for i in range(len(ch["data"]["header"]["headers"])):
+                ch_p = ch_p + ch["data"]["header"]["headers"][i]
+
+            diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
+            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
+                return True
+            else:
+                return False
+    else:
+        ch_p = ch["data"]["header"]["firstLine"]
+
+        for i in range(len(ch["data"]["header"]["headers"])):
+            ch_p = ch_p + ch["data"]["header"]["headers"][i]
+        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data"]["send_data"]]
+        c = ChrlsParser()
+        diff.diff(c.utf8_decoder(ch_p), api_target, diff.default_compare, diff_deep_result)
         if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
             return True
         else:
             return False
 
-if TARGETAPI_PROFILESLIST[6] == tr["api_infos"]["trace_api"]:
-    if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data_string"]]
-        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data_string"]]
-        diff.diff(ch, api_target, diff.default_compare, diff_deep_result)
+    if TARGETAPI_PROFILESLIST[5] == tr["api_infos"]["trace_api"]:
+        if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data_string"]]:
+            api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data_string"]]
+            ch_p = ch["data"]["header"]["firstLine"]
+
+            for i in range(len(ch["data"]["header"]["headers"])):
+                ch_p = ch_p + ch["data"]["header"]["headers"][i]
+
+            diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
+            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
+                return True
+            else:
+                return False
+    else:
+        ch_p = ch["data"]["header"]["firstLine"]
+
+        for i in range(len(ch["data"]["header"]["headers"])):
+            ch_p = ch_p + ch["data"]["header"]["headers"][i]
+        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data"]["send_data"]]
+        diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
         if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
             return True
         else:
             return False
+
+
+    if TARGETAPI_PROFILESLIST[6] == tr["api_infos"]["trace_api"]:
+        if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data_string"]]:
+            api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data_string"]]
+            ch_p = ch["data"]["header"]["firstLine"]
+
+            for i in range(len(ch["data"]["header"]["headers"])):
+                ch_p = ch_p + ch["data"]["header"]["headers"][i]
+
+            diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
+            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
+                return True
+            else:
+                return False
+    else:
+        ch_p = ch["data"]["header"]["firstLine"]
+
+        for i in range(len(ch["data"]["header"]["headers"])):
+            ch_p = ch_p + ch["data"]["header"]["headers"][i]
+        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data"]["send_data"]]
+        diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
+        if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
+            return True
+        else:
+            return False
+
+
 
 
 # target 3,5,6
 def exportdiff(chrls, tracer):
     target_apilist = [TARGETAPI_PROFILESLIST[3], TARGETAPI_PROFILESLIST[5], TARGETAPI_PROFILESLIST[6]]
     apidiff_target = []
-    for i in range(len(tracer) - 1):
+    for i in range(1, len(tracer)):
         if tracer[i]["api_infos"]["trace_api"] in target_apilist:
             apidiff_target.append(tracer[i])
 
@@ -482,5 +526,4 @@ if __name__ == '__main__':
     b = ChrlsParser(
         "log/com.Lukaku.pictures.backgrounds.photos.images.hd.free.sports_2019_3_30_15-2-9_charles_shaping.json")
     b.parser()
-    b.jsnexport(b.targets_list, "out1.json")
-    a.jsnexport(a.api_list, "out.json")
+    exportdiff(b.targets_list.copy(), a.api_list.copy())
