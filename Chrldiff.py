@@ -382,6 +382,77 @@ class APITraceParser(LogParser):
         return return_api
 
 
+class Chrl_Diff():
+    def __init__(self, chrl, tracer):
+        self.chrl = chrl
+        self.tracer = tracer
+        self.result_list = {"mc": 0, "ad": 0, "rm": 0}
+        self.now = 0
+
+    def diff_deep_result(self, result_list, m, n):
+        global DEEPDIFF_RESULTLIST
+        i = 0
+        self.result_list["mc"] = 0
+        self.result_list["ad"] = 0
+        self.result_list["rm"] = 0
+        while i < len(result_list):
+            if result_list[i].dir == 's':
+              #  print(COL['CLEAR'] + "  " + str(n[result_list[i].ni]))
+                self.result_list["mc"] += 1
+            elif result_list[i].dir == 'r':
+               # print(COL['GREEN'] + "+ " + str(n[result_list[i].ni]))
+                self.result_list["ad"] += 1
+            elif result_list[i].dir == 'b':
+              #  print(COL['RED'] + "- " + str(m[result_list[i].mi]))
+                self.result_list["rm"] += 1
+            i += 1
+
+    def diff_cmp(self, ch, tr):
+        tr_type = TARGETAPI_PROFILESLIST.index(tr["api_infos"]["trace_api"])
+        print(tr_type)
+        print(type(tr_type))
+        self.deep_diff_cmp(ch, tr, tr_type)
+
+        if self.result_list["mc"] >= len(ch) // 1.7:
+            return True
+        else:
+            return False
+
+    # tracer is a element in tracer list
+    def deep_diff_cmp(self, chrl, tracer, cmp_type):
+        data = SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[cmp_type]]["data_string"]
+        api_target = tracer[SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[cmp_type]]["data_string"]]
+        target_ch = chrl["data"]["header"]["firstLine"]
+        for i in range(len(chrl["data"]["header"]["headers"])):
+            ch_p = chrl["data"]["header"]["headers"][i]
+            ch_pp = ch_p["name"] + " " + ch_p["value"]
+            target_ch = target_ch + ch_pp + "\r\n"
+        if "" == tracer[data]:
+            api_target = tracer["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[cmp_type]]["send_data"]]
+            index = api_target.find("000000000000000000000000000000000000000000000000")
+            if not index == -1:
+                api_target = api_target[:index - len(api_target)]
+                print(api_target)
+            c = ChrlsParser()
+            hex_ch = c.utf8tohex_decoder(target_ch)
+            diff.diff(hex_ch, api_target, diff.default_compare, self.diff_deep_result)
+        else:
+            diff.diff(target_ch, api_target, diff.default_compare, self.diff_deep_result)
+
+        self.now += 1
+
+    # target 3,5,6
+    def exportdiff(self):
+        target_apilist = [TARGETAPI_PROFILESLIST[3], TARGETAPI_PROFILESLIST[5], TARGETAPI_PROFILESLIST[6]]
+        apidiff_target = []
+        for i in range(1, len(self.tracer)):
+            if self.tracer[i]["api_infos"]["trace_api"] in target_apilist:
+                apidiff_target.append(self.tracer[i])
+        del self.chrl[0]
+        print(type(apidiff_target))
+        diff.diff(self.chrl, apidiff_target, self.diff_cmp, diff.default_print_result)
+
+
 def get_args():
     parser = ArgumentParser()
 
@@ -393,122 +464,6 @@ def get_args():
     return (args)
 
 
-def diff_deep_result(result_list, m, n):
-    global DEEPDIFF_RESULTLIST
-    i = 0
-    mc_count = 0
-    ad_count = 0
-    rm_count = 0
-
-    while i < len(result_list):
-        if result_list[i].dir == 's':
-            print(COL['CLEAR'] + "  " + str(n[result_list[i].ni]))
-            mc_count += 1
-        elif result_list[i].dir == 'r':
-            print(COL['GREEN'] + "+ " + str(n[result_list[i].ni]))
-            ad_count += 1
-        elif result_list[i].dir == 'b':
-            print(COL['RED'] + "- " + str(m[result_list[i].mi]))
-            rm_count += 1
-        i += 1
-    DEEPDIFF_RESULTLIST.append(mc_count)
-    DEEPDIFF_RESULTLIST.append(ad_count)
-    DEEPDIFF_RESULTLIST.append(rm_count)
-
-
-def diff_compare(ch, tr):
-    if TARGETAPI_PROFILESLIST[3] == tr["api_infos"]["trace_api"]:
-        if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data_string"]]:
-            api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data_string"]]
-            ch_p = ch["data"]["header"]["firstLine"]
-
-            for i in range(len(ch["data"]["header"]["headers"])):
-                ch_p = ch_p + ch["data"]["header"]["headers"][i]
-
-            diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
-            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-                return True
-            else:
-                return False
-    else:
-        ch_p = ch["data"]["header"]["firstLine"]
-
-        for i in range(len(ch["data"]["header"]["headers"])):
-            ch_p = ch_p + ch["data"]["header"]["headers"][i]
-        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[3]]["data"]["send_data"]]
-        c = ChrlsParser()
-        diff.diff(c.utf8_decoder(ch_p), api_target, diff.default_compare, diff_deep_result)
-        if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-            return True
-        else:
-            return False
-
-    if TARGETAPI_PROFILESLIST[5] == tr["api_infos"]["trace_api"]:
-        if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data_string"]]:
-            api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data_string"]]
-            ch_p = ch["data"]["header"]["firstLine"]
-
-            for i in range(len(ch["data"]["header"]["headers"])):
-                ch_p = ch_p + ch["data"]["header"]["headers"][i]
-
-            diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
-            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-                return True
-            else:
-                return False
-    else:
-        ch_p = ch["data"]["header"]["firstLine"]
-
-        for i in range(len(ch["data"]["header"]["headers"])):
-            ch_p = ch_p + ch["data"]["header"]["headers"][i]
-        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[5]]["data"]["send_data"]]
-        diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
-        if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-            return True
-        else:
-            return False
-
-
-    if TARGETAPI_PROFILESLIST[6] == tr["api_infos"]["trace_api"]:
-        if not "" == tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data_string"]]:
-            api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data_string"]]
-            ch_p = ch["data"]["header"]["firstLine"]
-
-            for i in range(len(ch["data"]["header"]["headers"])):
-                ch_p = ch_p + ch["data"]["header"]["headers"][i]
-
-            diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
-            if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-                return True
-            else:
-                return False
-    else:
-        ch_p = ch["data"]["header"]["firstLine"]
-
-        for i in range(len(ch["data"]["header"]["headers"])):
-            ch_p = ch_p + ch["data"]["header"]["headers"][i]
-        api_target = tr["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[6]]["data"]["send_data"]]
-        diff.diff(ch_p, api_target, diff.default_compare, diff_deep_result)
-        if DEEPDIFF_RESULTLIST[0] >= len(ch) // 1.7:
-            return True
-        else:
-            return False
-
-
-
-
-# target 3,5,6
-def exportdiff(chrls, tracer):
-    target_apilist = [TARGETAPI_PROFILESLIST[3], TARGETAPI_PROFILESLIST[5], TARGETAPI_PROFILESLIST[6]]
-    apidiff_target = []
-    for i in range(1, len(tracer)):
-        if tracer[i]["api_infos"]["trace_api"] in target_apilist:
-            apidiff_target.append(tracer[i])
-
-    del chrls[0]
-    diff.diff(chrls, apidiff_target, diff_compare, diff.default_print_result)
-
-
 def main():
     args = get_args()
     print('you inputed {} {}'.format(args.arg1, args.arg2))
@@ -516,7 +471,7 @@ def main():
     tracer = APITraceParser(args.arg2)
     chrl.parser()
     tracer.parser()
-    exportdiff(chrl.targets_list.copy(), tracer.api_list.copy())
+    differ = Chrl_Diff(chrl.targets_list.copy(), tracer.api_list.copy())
 
 
 if __name__ == '__main__':
@@ -526,4 +481,5 @@ if __name__ == '__main__':
     b = ChrlsParser(
         "log/com.Lukaku.pictures.backgrounds.photos.images.hd.free.sports_2019_3_30_15-2-9_charles_shaping.json")
     b.parser()
-    exportdiff(b.targets_list.copy(), a.api_list.copy())
+    differ = Chrl_Diff(b.targets_list.copy(), a.api_list.copy())
+    differ.exportdiff()
