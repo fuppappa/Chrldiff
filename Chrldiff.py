@@ -10,6 +10,7 @@ from datetime import datetime as tm
 import copy
 import binascii
 import diff
+import difflib
 
 COL = {
     'CLEAR': '\033[0m',
@@ -150,7 +151,7 @@ class LogParser:
 
 
 class ChrlsParser(LogParser):
-    def __init__(self, jsnfile=None):
+    def __init__(self, jsnfile):
         super().__init__(jsnfile)
         self.targets_list = []
 
@@ -382,12 +383,22 @@ class APITraceParser(LogParser):
         return return_api
 
 
+def utf8_decoder(string):
+    byte = codecs.encode(string, 'utf-8')
+    encoded = codecs.encode(byte, "hex")
+
+    return encoded.decode()
+
+
 class Chrl_Diff():
     def __init__(self, chrl, tracer):
+        self.total = 0
         self.chrl = chrl
         self.tracer = tracer
         self.result_list = {"mc": 0, "ad": 0, "rm": 0}
         self.now = 0
+        self.target_ch = []
+        self.target_tracer = []
 
     def diff_deep_result(self, result_list, m, n):
         global DEEPDIFF_RESULTLIST
@@ -397,60 +408,71 @@ class Chrl_Diff():
         self.result_list["rm"] = 0
         while i < len(result_list):
             if result_list[i].dir == 's':
-              #  print(COL['CLEAR'] + "  " + str(n[result_list[i].ni]))
+                print(COL['CLEAR'] + "  " + str(n[result_list[i].ni]), end="")
                 self.result_list["mc"] += 1
             elif result_list[i].dir == 'r':
-               # print(COL['GREEN'] + "+ " + str(n[result_list[i].ni]))
+                print(COL['GREEN'] + "+ " + str(n[result_list[i].ni]), end="")
                 self.result_list["ad"] += 1
             elif result_list[i].dir == 'b':
-              #  print(COL['RED'] + "- " + str(m[result_list[i].mi]))
+                print(COL['RED'] + "- " + str(m[result_list[i].mi]), end="")
                 self.result_list["rm"] += 1
             i += 1
+        print("-----------------------------------------------------")
 
     def diff_cmp(self, ch, tr):
-        tr_type = TARGETAPI_PROFILESLIST.index(tr["api_infos"]["trace_api"])
-        print(tr_type)
-        print(type(tr_type))
-        self.deep_diff_cmp(ch, tr, tr_type)
-
-        if self.result_list["mc"] >= len(ch) // 1.7:
+        self.total += 1
+        ch_t=tm.strptime(ch["time"], "%H:%M:%S")
+        tr_t =tm.strptime(tr["time"], "%H:%M:%S")
+        delta1 = ch_t - tr_t
+        delta2 = tr_t -ch_t
+        deltabool = delta1.seconds <= 150 or delta2.seconds <= 150
+        if difflib.SequenceMatcher(None, ch["data"], tr["data"]).ratio() >= 0.70 and deltabool:
             return True
         else:
             return False
 
     # tracer is a element in tracer list
-    def deep_diff_cmp(self, chrl, tracer, cmp_type):
-        data = SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[cmp_type]]["data_string"]
-        api_target = tracer[SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[cmp_type]]["data_string"]]
-        target_ch = chrl["data"]["header"]["firstLine"]
-        for i in range(len(chrl["data"]["header"]["headers"])):
-            ch_p = chrl["data"]["header"]["headers"][i]
-            ch_pp = ch_p["name"] + " " + ch_p["value"]
-            target_ch = target_ch + ch_pp + "\r\n"
-        if "" == tracer[data]:
-            api_target = tracer["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[cmp_type]]["send_data"]]
+    def chose_target(self, chrl, tracer):
+
+        for i in range(len(chrl)):
+            ch = chrl[i]["data"]["header"]["firstLine"]
+            for j in range(len(chrl[i]["data"]["header"]["headers"])):
+                ch_p = chrl[i]["data"]["header"]["headers"][j]
+                ch_pp = ch_p["name"] + " " + ch_p["value"]
+                ch = ch + ch_pp + "\r\n"
+
+            ch_time = chrl[i]["infos"]["time"][11:-10]
+            # hex_ch = utf8_decoder(ch)
+            temp = {"data": ch, "time": ch_time}
+            self.target_ch.append(temp)
+
+        for g in range(len(tracer)):
+
+            tr_type = TARGETAPI_PROFILESLIST.index(tracer[g]["api_infos"]["trace_api"])
+            '''
+            api_target = tracer[g]["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["send_data"]]
             index = api_target.find("000000000000000000000000000000000000000000000000")
             if not index == -1:
                 api_target = api_target[:index - len(api_target)]
-                print(api_target)
-            c = ChrlsParser()
-            hex_ch = c.utf8tohex_decoder(target_ch)
-            diff.diff(hex_ch, api_target, diff.default_compare, self.diff_deep_result)
-        else:
-            diff.diff(target_ch, api_target, diff.default_compare, self.diff_deep_result)
-
-        self.now += 1
+            '''
+            api_target = tracer[g][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["data_string"]]
+            tr_time =  tracer[g]["api_infos"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["time"]][:-4]
+            temp1 = {"data": api_target, "time": tr_time}
+            self.target_tracer.append(temp1)
+        diff.diff(self.target_ch, self.target_tracer, self.diff_cmp, diff.default_print_result)
 
     # target 3,5,6
     def exportdiff(self):
         target_apilist = [TARGETAPI_PROFILESLIST[3], TARGETAPI_PROFILESLIST[5], TARGETAPI_PROFILESLIST[6]]
         apidiff_target = []
+        chrl_target = []
         for i in range(1, len(self.tracer)):
             if self.tracer[i]["api_infos"]["trace_api"] in target_apilist:
                 apidiff_target.append(self.tracer[i])
-        del self.chrl[0]
-        print(type(apidiff_target))
-        diff.diff(self.chrl, apidiff_target, self.diff_cmp, diff.default_print_result)
+        for m in range(1, len(self.chrl)):
+            chrl_target.append(self.chrl[m])
+
+        self.chose_target(chrl_target, apidiff_target)
 
 
 def get_args():
@@ -472,14 +494,9 @@ def main():
     chrl.parser()
     tracer.parser()
     differ = Chrl_Diff(chrl.targets_list.copy(), tracer.api_list.copy())
+    differ.exportdiff()
 
 
 if __name__ == '__main__':
     print(tm.now())
-    a = APITraceParser("log/com.Lukaku.pictures.backgrounds.photos.images.hd.free.sports_2019_3_30_15-2-9_shaping.json")
-    a.parser()
-    b = ChrlsParser(
-        "log/com.Lukaku.pictures.backgrounds.photos.images.hd.free.sports_2019_3_30_15-2-9_charles_shaping.json")
-    b.parser()
-    differ = Chrl_Diff(b.targets_list.copy(), a.api_list.copy())
-    differ.exportdiff()
+    main()
