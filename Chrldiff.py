@@ -11,6 +11,7 @@ import copy
 import binascii
 import diff
 import difflib
+import lib
 
 COL = {
     'CLEAR': '\033[0m',
@@ -130,6 +131,12 @@ class LogParser:
         self.jsnfile = jsnfile
         self.log = self.jsnimport()
 
+    def shaping(self):
+        output = self.jsnfile.replace(".json", "_shaping.json")
+        loaded = lib.loadJson(self.jsnfile)
+        lib.setAnalyzedHistory(loaded, "SHAPING")
+        lib.writeJson(loaded, output)
+
     def jsnimport(self):
         try:
             with open(self.jsnfile, 'r') as fd:
@@ -215,7 +222,6 @@ class ChrlsParser(LogParser):
                         print(COL["RED"] + "[ERROR]: not found key in {} element ".format(i + 1) + COL["CLEAR"])
                         print(sys.exc_info())
                         print(e)
-                        print(log)
 
             self.targets_list.append(infos)
 
@@ -238,7 +244,6 @@ class APITraceParser(LogParser):
 
     def utf8_encoder(self, hexstring):
         try:
-            print(hexstring)
             if len(hexstring) % 2 != 0:
                 hexstring = hexstring[0:len(hexstring) - 1]
             encoded = codecs.decode(hexstring, 'hex_codec').decode('utf-8')
@@ -421,10 +426,10 @@ class Chrl_Diff():
 
     def diff_cmp(self, ch, tr):
         self.total += 1
-        ch_t=tm.strptime(ch["time"], "%H:%M:%S")
-        tr_t =tm.strptime(tr["time"], "%H:%M:%S")
+        ch_t = tm.strptime(ch["time"], "%H:%M:%S")
+        tr_t = tm.strptime(tr["time"], "%H:%M:%S")
         delta1 = ch_t - tr_t
-        delta2 = tr_t -ch_t
+        delta2 = tr_t - ch_t
         deltabool = delta1.seconds <= 150 or delta2.seconds <= 150
         if difflib.SequenceMatcher(None, ch["data"], tr["data"]).ratio() >= 0.70 and deltabool:
             return True
@@ -447,7 +452,6 @@ class Chrl_Diff():
             self.target_ch.append(temp)
 
         for g in range(len(tracer)):
-
             tr_type = TARGETAPI_PROFILESLIST.index(tracer[g]["api_infos"]["trace_api"])
             '''
             api_target = tracer[g]["data"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["send_data"]]
@@ -456,7 +460,7 @@ class Chrl_Diff():
                 api_target = api_target[:index - len(api_target)]
             '''
             api_target = tracer[g][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["data_string"]]
-            tr_time =  tracer[g]["api_infos"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["time"]][:-4]
+            tr_time = tracer[g]["api_infos"][SENDAPI_PROFILES[TARGETAPI_PROFILESLIST[tr_type]]["time"]][:-4]
             temp1 = {"data": api_target, "time": tr_time}
             self.target_tracer.append(temp1)
         diff.diff(self.target_ch, self.target_tracer, self.diff_cmp, diff.default_print_result)
